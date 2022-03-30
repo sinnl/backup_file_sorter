@@ -27,7 +27,7 @@ def check_paths():
 
 
 def get_backup_file_name(backup_file_path, backup_date):
-    file = f'{backup_file_path}/{backup_date}*'
+    file = f'{backup_file_path}/*{backup_date}*'
     backup_file = glob.glob(file)[0]
     return backup_file
 
