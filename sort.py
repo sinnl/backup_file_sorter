@@ -1,103 +1,126 @@
 import os
 import shutil
 import sys
-import glob
 import json
 from argparse import ArgumentParser
 
 parser = ArgumentParser()
 parser.add_argument('-p', '--path', help='Absolute path to all backups', required=True)
-parser.add_argument('-l', '--latest', help='Absolute path to where latest backups should be moved', required=True)
-parser.add_argument('-a', '--archive', help='Absolute path to where archive backups should be moved', required=True)
+parser.add_argument('-r', '--remote', help='Absolute path to top level restore directory', required=True)
 parser.add_argument('-d', '--dry_run', help='Dry run, will only print out what would be done without taking any action', required=False, action='store_true')
 
 args = parser.parse_args()
 
 all_backups_path = args.path
-archive_backups_path = args.latest
-latest_backups_path = args.archive
+remote_path = args.remote
+backup_dirs = []
+NAME_PATTERN = '_202'
 
 
 def check_paths():
-    paths = [args.path, args.latest, args.archive]
+    paths = [args.path, args.remote]
     for local_path in paths:
         if not os.path.exists(local_path):
             print(f'Path "{local_path}" does not exist')
             sys.exit(1)
 
 
-def get_backup_file_name(backup_file_path, backup_date):
-    file = f'{backup_file_path}/*{backup_date}*'
-    backup_file = glob.glob(file)[0]
-    return backup_file
+def get_directories(local_path):
+    items = os.scandir(local_path)
+    for item in items:
+        if item.is_dir():
+            backup_dirs.append(f'{local_path}/{item.name}')
+            get_directories(f'{local_path}/{item.name}')
 
 
-def get_all_files(local_path):
-    output = []
-    all_items = os.scandir(path=local_path)
-    for item in all_items:
-        if item.is_file():
-            output.append(f'{local_path}/{item.name}')
+def get_files(directories):
+    out = {}
+    for directory in directories:
+        items = os.scandir(directory)
+        for item in items:
+            if item.is_file():
+                if NAME_PATTERN in item.name.strip():
+                    if directory in out.keys():
+                        out[directory].append(item.name.strip())
+                    else:
+                        out[directory] = [item.name.strip()]
 
-    return output
+    return out
 
 
-def generate_backup_dict(all_backups):
-    tmp_backup_dict, out = {}, {}
-    backup_dates = [x.split('_')[-1] for x in all_backups]
+def get_latest_backup(backups):
+    tmp_backup_dict, latest_files = {}, {}
 
-    for item in backup_dates:
-        backup_date = item[:8]
-        backup_time = item[8:12]
-        if backup_date in tmp_backup_dict.keys():
-            tmp_backup_dict[backup_date].append(backup_time)
-        else:
-            tmp_backup_dict[backup_date] = [backup_time]
+    backups = {k: [(x, x.split('_')[-1]) for x in v] for k, v in backups.items()}
+    for local_path, files in backups.items():
+        for backup_file in files:
+            backup_date = backup_file[1][:8]
+            backup_time = backup_file[1][8:14]
+            filename = '_'.join(backup_file[0].split('_')[:-1])
+
+            if f'{local_path}/{filename}' in tmp_backup_dict.keys():
+                tmp_backup_dict[f'{local_path}/{filename}'].append(f'{backup_date}{backup_time}')
+            else:
+                tmp_backup_dict[f'{local_path}/{filename}'] = [f'{backup_date}{backup_time}']
 
     for key, values in tmp_backup_dict.items():
-        out.update({key: sorted(values)})
+        file_path = '/'.join(key.split('/')[:-1])
+        file_name = '/'.join(key.split('/')[:-1])
 
-    return out
+        latest_date = sorted(values)[-1]
+        for files in backups[file_name]:
+            if latest_date in files[1]:
+                bk_file = files[0]
 
+        if file_path in latest_files.keys():
+            latest_files[file_path].append(bk_file)
+        else:
+            latest_files[file_path] = [bk_file]
 
-def get_latest_backups(backups, backups_path):
-    out = []
-    for key, value in backups.items():
-        backup_date = key
-        backup_time = value[-1]
-        out.append(get_backup_file_name(backups_path, f'{backup_date}{backup_time}'))
-
-    return out
+    return latest_files
 
 
 def move_latest_backups(backups, destination):
-    for backup_file in backups:
-        shutil.move(backup_file, destination)
+    copied = []
 
+    for backup_path, backup_files in backups.items():
 
-def archive_backups(all_backups, latest, destination):
-    backups_to_archive = [x for x in all_backups if x not in latest]
-    for backup_file in backups_to_archive:
-        shutil.move(backup_file, destination)
+        for backup_filename in backup_files:
+            backup_file = f'{backup_path}/{backup_filename}'
+            new_filename = '_'.join(backup_filename.split('_')[:-1])
+            # file_path = '/'.join(backup_path.split('/')[6:])
+            file_path = '/'.join(backup_path.split('/')[1:])
+            new_path = f'{destination}/{file_path}'
+
+            if args.dry_run:
+                copied.append((backup_file, f'{new_path}/{new_filename}'))
+            else:
+                try:
+                    if not os.path.exists(new_path):
+                        os.makedirs(new_path)
+                    print(f'Coping {backup_file} to {new_path}/{new_filename}')
+                    shutil.copy(backup_file, f'{new_path}/{new_filename}')
+                    copied.append((backup_file, f'{new_path}/{new_filename}'))
+                except Exception as e:
+                    print(e)
+                    print(f'There have been a problem while copying file {new_path}/{new_filename}')
+
+    if args.dry_run:
+        print('\n- Dry run - !Taking No Action!\n')
+        for item in copied:
+            print(f'[NOOP] copying {item[0]} to {item[1]}')
+
+        print(f'\n[NOOP] Copied {len(copied)} files to new locations\n')
+        print('- Dry run - !No Action Taken!')
+    else:
+        print(f'\nCopied {len(copied)} files to new locations\n')
 
 
 if __name__ == '__main__':
     check_paths()
-    all_backup_files = get_all_files(all_backups_path)
-    bk_dk = generate_backup_dict(all_backup_files)
-    latest_backups = get_latest_backups(bk_dk, all_backups_path)
-
-    if args.dry_run:
-        print(f'would Moved {len(latest_backups)} files to {args.latest}')
-        print(f'Would Moved {len(all_backup_files) - len(latest_backups)} files to {args.archive}' + '\n')
-
-        print(f'Latest backups:')
-        print('\n'.join(latest_backups) + '\n')
-        print('No action has been taken')
-    else:
-        move_latest_backups(latest_backups, latest_backups_path)
-        archive_backups(all_backup_files, latest_backups, archive_backups_path)
-
-        print(f'Moved {len(latest_backups)} files to {args.latest}')
-        print(f'Moved {len(all_backup_files) - len(latest_backups)} files to {args.archive}')
-        print(f'Folder {args.path} should now be empty')
+    
+    get_directories(all_backups_path)
+    backup_files = get_files(backup_dirs)
+    latest_backups = get_latest_backup(backup_files)
+    
+    move_latest_backups(latest_backups, remote_path)
