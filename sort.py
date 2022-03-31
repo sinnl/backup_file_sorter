@@ -89,7 +89,7 @@ def move_latest_backups(backups, destination):
             backup_file = f'{backup_path}/{backup_filename}'
             new_filename = '_'.join(backup_filename.split('_')[:-1])
             # file_path = '/'.join(backup_path.split('/')[6:])
-            file_path = '/'.join(backup_path.split('/')[1:])
+            file_path = '/'.join(backup_path.split('/')[2:])
             new_path = f'{destination}/{file_path}'
 
             if args.dry_run:
