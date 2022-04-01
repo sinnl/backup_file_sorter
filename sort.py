@@ -15,7 +15,7 @@ args = parser.parse_args()
 all_backups_path = args.path
 remote_path = args.remote
 backup_dirs = []
-NAME_PATTERN = ['_202', '201']
+NAME_PATTERN = ['_202', '_201']
 
 console = Console()
 error = 'bold red'
