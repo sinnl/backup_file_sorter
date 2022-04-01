@@ -40,6 +40,7 @@ def get_directories(local_path):
 
 
 def get_files(directories):
+    directories.append(args.path)
     out = {}
     for directory in directories:
         items = os.scandir(directory)
@@ -95,7 +96,7 @@ def move_latest_backups(backups, destination):
             backup_file = f'{backup_path}/{backup_filename}'
             new_filename = '_'.join(backup_filename.split('_')[:-1])
             # file_path = '/'.join(backup_path.split('/')[6:])
-            file_path = '/'.join(backup_path.split('/')[2:])
+            file_path = '/'.join(backup_path.split('/')[3:])
             new_path = f'{destination}/{file_path}'
 
             if args.dry_run:
