@@ -101,14 +101,20 @@ def move_latest_backups(backups, destination):
             new_path = f'{destination}/{file_path}'
 
             if args.dry_run:
-                copied.append((backup_file, f'{new_path}/{new_filename}'))
+                exists = os.path.isfile(f'{new_path}/{new_filename}')
+                if not exists:
+                    copied.append((backup_file, f'{new_path}/{new_filename}'))
             else:
                 try:
                     if not os.path.exists(new_path):
                         os.makedirs(new_path)
-                    console.print(f'Coping {backup_file} to {new_path}/{new_filename}', style=info)
-                    shutil.copy(backup_file, f'{new_path}/{new_filename}')
-                    copied.append((backup_file, f'{new_path}/{new_filename}'))
+                    exists = os.path.isfile(f'{new_path}/{new_filename}')
+                    if not exists:
+                        console.print(f'Coping {backup_file} to {new_path}/{new_filename}', style=info)
+                        shutil.copy(backup_file, f'{new_path}/{new_filename}')
+                        copied.append((backup_file, f'{new_path}/{new_filename}'))
+                    else:
+                        console.print(f'File {new_path}/{new_filename} already exists - NOT COPIED', style=warning)
                 except Exception as e:
                     console.print(e, style=error)
                     console.print(f'There have been a problem while copying file {new_path}/{new_filename}', style=warning)
@@ -121,7 +127,7 @@ def move_latest_backups(backups, destination):
         console.print(f'\n[NOOP] Copied {len(copied)} files to new locations\n', style=warning)
         console.print('- Dry run - !No Action Taken!', style=warning)
     else:
-        console.print(f'\nCopied {len(copied)} files to new locations\n', style=error)
+        console.print(f'\nCopied {len(copied)} files to new locations\n', style=info)
 
 
 if __name__ == '__main__':
