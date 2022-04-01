@@ -3,6 +3,7 @@ import shutil
 import sys
 import json
 from argparse import ArgumentParser
+from rich.console import Console
 
 parser = ArgumentParser()
 parser.add_argument('-p', '--path', help='Absolute path to all backups', required=True)
@@ -16,12 +17,17 @@ remote_path = args.remote
 backup_dirs = []
 NAME_PATTERN = '_202'
 
+console = Console()
+error = 'bold red'
+warning = 'bold yellow'
+info = 'bold green'
+
 
 def check_paths():
     paths = [args.path, args.remote]
     for local_path in paths:
         if not os.path.exists(local_path):
-            print(f'Path "{local_path}" does not exist')
+            console.print(f'Path "{local_path}" does not exist', style=error)
             sys.exit(1)
 
 
@@ -98,22 +104,22 @@ def move_latest_backups(backups, destination):
                 try:
                     if not os.path.exists(new_path):
                         os.makedirs(new_path)
-                    print(f'Coping {backup_file} to {new_path}/{new_filename}')
+                    console.print(f'Coping {backup_file} to {new_path}/{new_filename}', style=info)
                     shutil.copy(backup_file, f'{new_path}/{new_filename}')
                     copied.append((backup_file, f'{new_path}/{new_filename}'))
                 except Exception as e:
-                    print(e)
-                    print(f'There have been a problem while copying file {new_path}/{new_filename}')
+                    console.print(e, style=error)
+                    console.print(f'There have been a problem while copying file {new_path}/{new_filename}', style=warning)
 
     if args.dry_run:
-        print('\n- Dry run - !Taking No Action!\n')
+        console.print('\n- Dry run - !Taking No Action!\n', style=warning)
         for item in copied:
-            print(f'[NOOP] copying {item[0]} to {item[1]}')
+            console.print(f'[NOOP] copying {item[0]} to {item[1]}', style=warning)
 
-        print(f'\n[NOOP] Copied {len(copied)} files to new locations\n')
-        print('- Dry run - !No Action Taken!')
+        console.print(f'\n[NOOP] Copied {len(copied)} files to new locations\n', style=warning)
+        console.print('- Dry run - !No Action Taken!', style=warning)
     else:
-        print(f'\nCopied {len(copied)} files to new locations\n')
+        console.print(f'\nCopied {len(copied)} files to new locations\n', style=error)
 
 
 if __name__ == '__main__':
