@@ -15,7 +15,7 @@ args = parser.parse_args()
 all_backups_path = args.path
 remote_path = args.remote
 backup_dirs = []
-NAME_PATTERN = '_202'
+NAME_PATTERN = ['_202', '201']
 
 console = Console()
 error = 'bold red'
@@ -46,11 +46,12 @@ def get_files(directories):
         items = os.scandir(directory)
         for item in items:
             if item.is_file():
-                if NAME_PATTERN in item.name.strip():
-                    if directory in out.keys():
-                        out[directory].append(item.name.strip())
-                    else:
-                        out[directory] = [item.name.strip()]
+                for pattern in NAME_PATTERN:
+                    if pattern in item.name.strip():
+                        if directory in out.keys():
+                            out[directory].append(item.name.strip())
+                        else:
+                            out[directory] = [item.name.strip()]
 
     return out
 
